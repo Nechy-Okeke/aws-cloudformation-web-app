@@ -14,17 +14,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Pull OWASP ZAP Docker image
+        run: docker pull owasp/zap2docker-stable:latest
+
       - name: Run ZAP Scan
         run: |
           docker run -v $(pwd):/zap/wrk/:rw \
-            -t owasp/zap2docker-stable zap-full-scan.py \
+            -t owasp/zap2docker-stable:latest zap-full-scan.py \
             -t https://example.com \
             -r zap_report.html \
             -J zap_report.json \
             -x zap_report.xml
 
       - name: Upload ZAP Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: zap-report
           path: |
