@@ -23,7 +23,7 @@ jobs:
         run: |
           aws cloudformation deploy \
             --template-file aws-cloudformation/web-app-with-cloudwatch.yaml \
-            --stack-name MyWebServerStack \
+            --stack-name MyWebServerStack-v2 \
             --capabilities CAPABILITY_IAM \
             --no-fail-on-empty-changeset
 
@@ -31,18 +31,19 @@ jobs:
         id: get-outputs
         run: |
           OUTPUTS=$(aws cloudformation describe-stacks \
-            --stack-name MyWebServerStack \
+            --stack-name MyWebServerStack-v2 \
             --query "Stacks[0].Outputs" \
             --output json)
 
           WEBSITE_URL=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey == "WebsiteURL") | .OutputValue')
-          
-          echo "$WEBSITE_URL" > ip.txt
-          echo "The website URL is: $WEBSITE_URL"
+          echo "website_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+          echo "Website URL is: $WEBSITE_URL"
+
+      - name: Save IP Address to file
+        run: echo "${{ steps.get-outputs.outputs.website_url }}" > ip.txt
 
       - name: Upload IP Address Artifact
         uses: actions/upload-artifact@v4
         with:
           name: webapp-ip-address
           path: ip.txt
-          retention-days: 1
