@@ -1,0 +1,61 @@
+name: OWASP ZAP Security Scan
+
+on:
+workflow_run:
+workflows: ["Web App CI/CD"]
+types:
+- completed
+branches:
+- main
+
+jobs:
+zap_scan:
+if: ${{ github.event.workflow_run.conclusion == 'success' }}
+runs-on: ubuntu-latest
+name: ZAP Full Scan
+permissions:
+actions: read
+contents: read
+steps:
+- name: Checkout Code
+uses: actions/checkout@v4
+
+  # Step to download the artifact from the previous workflow run
+  # This artifact will contain the deployed EC2 public IP
+  - name: Download Artifact
+    uses: actions/github-script@v6
+    with:
+      script: |
+        const { owner, repo } = context.repo;
+        const run = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: context.payload.workflow_run.id });
+        const artifacts = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: run.data.id });
+        const artifact = artifacts.data.artifacts.find(artifact => artifact.name === 'webapp-ip-address');
+
+        if (artifact) {
+          const download = await github.rest.actions.downloadArtifact({ owner, repo, artifact_id: artifact.id, archive_format: 'zip' });
+          const fs = require('fs');
+          const AdmZip = require('adm-zip');
+          const zip = new AdmZip(Buffer.from(download.data));
+          zip.extractAllTo('artifact_download', true);
+          const ipAddress = fs.readFileSync('artifact_download/ip.txt', 'utf8').trim();
+          console.log('Found IP Address:', ipAddress);
+          core.exportVariable('WEB_APP_URL', `http://${ipAddress}`);
+        } else {
+          core.setFailed('Could not find the webapp-ip-address artifact. The deployment workflow may have failed or not produced the artifact.');
+        }
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Step to run the ZAP scan using your custom script
+  - name: Run ZAP Scan using custom script
+    run: |
+      chmod +x ./zap-scan.sh
+      ./zap-scan.sh ${{ env.WEB_APP_URL }}
+  
+  - name: Upload ZAP Report
+    uses: actions/upload-artifact@v3
+    with:
+      name: zap-report
+      path: |
+        **/zap_report.html
+        **/zap_report.md
