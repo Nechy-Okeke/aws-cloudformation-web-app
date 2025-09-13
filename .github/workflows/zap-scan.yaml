@@ -2,7 +2,7 @@ name: OWASP ZAP Security Scan
 
 on:
   workflow_run:
-    workflows: ["Web App CI/CD"]
+    workflows: ["Deploy CloudFormation Stack"] # 👈 match the deploy workflow name
     types:
       - completed
     branches:
@@ -16,22 +16,38 @@ jobs:
     permissions:
       actions: read
       contents: read
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-      
+
       # Step to download the artifact from the previous workflow run
       - name: Download Artifact
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
-            const run = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: context.payload.workflow_run.id });
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: run.data.id });
-            const artifact = artifacts.data.artifacts.find(artifact => artifact.name === 'webapp-ip-address');
+            const run = await github.rest.actions.getWorkflowRun({
+              owner,
+              repo,
+              run_id: context.payload.workflow_run.id
+            });
+
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner,
+              repo,
+              run_id: run.data.id
+            });
+
+            const artifact = artifacts.data.artifacts.find(a => a.name === 'webapp-ip-address');
 
             if (artifact) {
-              const download = await github.rest.actions.downloadArtifact({ owner, repo, artifact_id: artifact.id, archive_format: 'zip' });
+              const download = await github.rest.actions.downloadArtifact({
+                owner,
+                repo,
+                artifact_id: artifact.id,
+                archive_format: 'zip'
+              });
               const fs = require('fs');
               const AdmZip = require('adm-zip');
               const zip = new AdmZip(Buffer.from(download.data));
@@ -40,21 +56,23 @@ jobs:
               console.log('Found IP Address:', ipAddress);
               core.exportVariable('WEB_APP_URL', `http://${ipAddress}`);
             } else {
-              core.setFailed('Could not find the webapp-ip-address artifact. The deployment workflow may have failed or not produced the artifact.');
+              core.setFailed('Could not find the webapp-ip-address artifact.');
             }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      # Step to run the ZAP scan using your custom script
+
+      # Run ZAP Scan with your script
       - name: Run ZAP Scan using custom script
         run: |
           chmod +x ./zap-scan.sh
           ./zap-scan.sh ${{ env.WEB_APP_URL }}
-      
+
+      # Upload ZAP reports as artifacts
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
           path: |
-            **/zap_report.html
-            **/zap_report.md
+            zap_report.html
+            zap_report.json
+            zap_report.xml

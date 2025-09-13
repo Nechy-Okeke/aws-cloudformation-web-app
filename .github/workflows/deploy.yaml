@@ -37,15 +37,11 @@ jobs:
 
           WEBSITE_URL=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey == "WebsiteURL") | .OutputValue')
           
-          # This is the new line to save the URL to a file
           echo "$WEBSITE_URL" > ip.txt
-          
           echo "The website URL is: $WEBSITE_URL"
-          echo "The CloudWatch Dashboard URL is: ${{ steps.get-outputs.outputs.dashboard_url }}"
-          
-      # This is the new step to upload the IP file as an artifact
+
       - name: Upload IP Address Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: webapp-ip-address
           path: ip.txt
