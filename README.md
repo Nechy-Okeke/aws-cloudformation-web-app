@@ -47,4 +47,4 @@ Monitoring
 Once the stack is deployed, you can monitor the application using the CloudWatch Dashboard created by the template. The dashboard URL can be found in the outputs of the CloudFormation stack in the AWS console.
 
 This project was created to demonstrate a basic CI/CD pipeline for AWS CloudFormation. Feel free to modify and adapt it for your own needs.
-9/13/2025
+9/13
