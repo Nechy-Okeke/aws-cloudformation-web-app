@@ -1,0 +1,14 @@
+{
+  "name": "my-app",
+  "version": "1.0.0",
+  "description": "A simple Node.js application for a DevOps project",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "nechycyloud",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

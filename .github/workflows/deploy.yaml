@@ -1,0 +1,47 @@
+name: Deploy CloudFormation Stack
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy CloudFormation Stack
+        run: |
+          aws cloudformation deploy \
+            --template-file aws-cloudformation/web-app-with-cloudwatch.yaml \
+            --stack-name MyWebServerStack \
+            --capabilities CAPABILITY_IAM \
+            --no-fail-on-empty-changeset
+
+      - name: Get Stack Outputs
+        id: get-outputs
+        run: |
+          OUTPUTS=$(aws cloudformation describe-stacks \
+            --stack-name MyWebServerStack \
+            --query "Stacks[0].Outputs" \
+            --output json)
+
+          WEBSITE_URL=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey == "WebsiteURL") | .OutputValue')
+          DASHBOARD_URL=$(echo "$OUTPUTS" | jq -r '.[] | select(.OutputKey == "DashboardURL") | .OutputValue')
+          
+          echo "website_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+          echo "dashboard_url=$DASHBOARD_OUTPUT" >> $GITHUB_OUTPUT
+
+      - name: Display URLs
+        run: |
+          echo "The website URL is: ${{ steps.get-outputs.outputs.website_url }}"
+          echo "The CloudWatch Dashboard URL is: ${{ steps.get-outputs.outputs.dashboard_url }}"

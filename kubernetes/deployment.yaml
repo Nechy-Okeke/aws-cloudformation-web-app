@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-app
+        # This image will need to be pushed to a registry like ECR
+        # before you can deploy it to the cluster.
+        image: <your-aws-account-id>.dkr.ecr.<your-aws-region>.amazonaws.com/my-app:latest
+        ports:
+        - containerPort: 8080
