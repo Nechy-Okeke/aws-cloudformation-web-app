@@ -1,74 +1,29 @@
-name: OWASP ZAP Security Scan
+name: ZAP Scan
 
 on:
-  workflow_run:
-    workflows: ["Deploy CloudFormation Stack"] # 👈 match the deploy workflow name
-    types:
-      - completed
+  push:
     branches:
       - main
+  pull_request:
 
 jobs:
-  zap_scan:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  zap-scan:
     runs-on: ubuntu-latest
-    name: ZAP Full Scan
-    permissions:
-      actions: read
-      contents: read
 
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step to download the artifact from the previous workflow run
-      - name: Download Artifact
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const run = await github.rest.actions.getWorkflowRun({
-              owner,
-              repo,
-              run_id: context.payload.workflow_run.id
-            });
-
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner,
-              repo,
-              run_id: run.data.id
-            });
-
-            const artifact = artifacts.data.artifacts.find(a => a.name === 'webapp-ip-address');
-
-            if (artifact) {
-              const download = await github.rest.actions.downloadArtifact({
-                owner,
-                repo,
-                artifact_id: artifact.id,
-                archive_format: 'zip'
-              });
-              const fs = require('fs');
-              const AdmZip = require('adm-zip');
-              const zip = new AdmZip(Buffer.from(download.data));
-              zip.extractAllTo('artifact_download', true);
-              const ipAddress = fs.readFileSync('artifact_download/ip.txt', 'utf8').trim();
-              console.log('Found IP Address:', ipAddress);
-              core.exportVariable('WEB_APP_URL', `http://${ipAddress}`);
-            } else {
-              core.setFailed('Could not find the webapp-ip-address artifact.');
-            }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Run ZAP Scan with your script
-      - name: Run ZAP Scan using custom script
+      - name: Run ZAP Scan
         run: |
-          chmod +x ./zap-scan.sh
-          ./zap-scan.sh ${{ env.WEB_APP_URL }}
+          docker run -v $(pwd):/zap/wrk/:rw \
+            -t owasp/zap2docker-stable zap-full-scan.py \
+            -t https://example.com \
+            -r zap_report.html \
+            -J zap_report.json \
+            -x zap_report.xml
 
-      # Upload ZAP reports as artifacts
-      - name: Upload ZAP Report
+      - name: Upload ZAP Reports
         uses: actions/upload-artifact@v4
         with:
           name: zap-report
